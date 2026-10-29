@@ -1,0 +1,438 @@
+{
+    "info": {
+        "name": "Store Orders API",
+        "description": "Requests for the Store Order & Inventory Mini-System.\n\nStart the app first (`php artisan serve`) and seed the database (`php artisan migrate:fresh --seed`). Change the `baseUrl` collection variable if you serve the app on another host or port. Optionally run `php artisan queue:work` in a second terminal: each successful order queues a confirmation email that the worker writes to storage/logs/laravel.log.\n\nProduct ids used below assume a freshly seeded database: product 1 (Parle-G Biscuit 100g) and product 2 (Colgate Toothpaste 100g) are normal in-stock items, product 16 (Potato Chips 52g) is seeded with stock 0. Run the requests in the order listed (folders Products, Orders, Customers); every request has a test script that checks the expected status code.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://127.0.0.1:8000",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Products",
+            "item": [
+                {
+                    "name": "List products",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "pm.test('Has data array and message', function () {",
+                                    "    const body = pm.response.json();",
+                                    "    pm.expect(body.data).to.be.an('array');",
+                                    "    pm.expect(body.message).to.be.a('string');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/products?per_page=50",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "products"
+                            ],
+                            "query": [
+                                {
+                                    "key": "per_page",
+                                    "value": "50",
+                                    "description": "Optional, 1-100 (default 50)."
+                                }
+                            ]
+                        },
+                        "description": "Paginated product list ordered by name. Money values are strings with two decimals."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Low stock (default threshold)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "pm.test('Reports the threshold that was applied', function () {",
+                                    "    const body = pm.response.json();",
+                                    "    pm.expect(body.threshold).to.be.a('number');",
+                                    "    pm.expect(body.data).to.be.an('array');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/products/low-stock",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "products",
+                                "low-stock"
+                            ]
+                        },
+                        "description": "Products whose stock_quantity is strictly below the configured default (LOW_STOCK_THRESHOLD, 10 unless changed), lowest stock first (ties by name). On a freshly seeded database this returns six products: Potato Chips (0), Eggs (2), Bread (3), Cola (5), Notebook (6) and Milk (8). The response also carries the applied `threshold`."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Low stock (threshold=5)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "pm.test('Threshold override is echoed back', function () {",
+                                    "    pm.expect(pm.response.json().threshold).to.eql(5);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/products/low-stock?threshold=5",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "products",
+                                "low-stock"
+                            ],
+                            "query": [
+                                {
+                                    "key": "threshold",
+                                    "value": "5",
+                                    "description": "Integer 0-1000000. Products with stock strictly below this value are returned."
+                                }
+                            ]
+                        },
+                        "description": "Same endpoint with an explicit threshold. A product with stock exactly equal to the threshold is NOT included. On a freshly seeded database this returns Potato Chips (0), Eggs (2) and Bread (3); Cola (exactly 5) is excluded."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Orders",
+            "item": [
+                {
+                    "name": "Create order (success)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 201', function () {",
+                                    "    pm.response.to.have.status(201);",
+                                    "});",
+                                    "pm.test('Order is returned with totals', function () {",
+                                    "    const body = pm.response.json();",
+                                    "    pm.expect(body.message).to.eql('Order created successfully');",
+                                    "    pm.expect(body.data.items).to.be.an('array').that.is.not.empty;",
+                                    "    pm.expect(body.data.grand_total).to.match(/^\\d+\\.\\d{2}$/);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"customer\": {\n        \"name\": \"John Doe\",\n        \"email\": \"john@example.com\"\n    },\n    \"items\": [\n        {\n            \"product_id\": 1,\n            \"quantity\": 2\n        },\n        {\n            \"product_id\": 2,\n            \"quantity\": 3\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/orders",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "orders"
+                            ]
+                        },
+                        "description": "Creates an order (201). Prices, tax and totals are always computed on the server: on a freshly seeded database 2 x Parle-G (10.00, 18%) and 3 x Colgate (50.00, 18%) give subtotal 170.00, tax 30.60 and grand_total 200.60. The customer name is only needed for a new email; for an existing customer such as John Doe it is ignored. Each run deducts stock, so repeating it enough times will eventually return a 409 insufficient_stock response; reset with `php artisan migrate:fresh --seed`."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create order (validation error)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 422', function () {",
+                                    "    pm.response.to.have.status(422);",
+                                    "});",
+                                    "pm.test('Field errors are returned', function () {",
+                                    "    pm.expect(pm.response.json().errors).to.be.an('object');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"customer\": {\n        \"email\": \"not-an-email\"\n    },\n    \"items\": []\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/orders",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "orders"
+                            ]
+                        },
+                        "description": "Invalid email, no customer name (required because the email is not a known customer) and an empty items list. Expect HTTP 422 with an `errors` object keyed by field: `customer.email`, `customer.name` and `items`."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create order (insufficient stock)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 409', function () {",
+                                    "    pm.response.to.have.status(409);",
+                                    "});",
+                                    "pm.test('Error code and shortages are returned', function () {",
+                                    "    const body = pm.response.json();",
+                                    "    pm.expect(body.code).to.eql('insufficient_stock');",
+                                    "    pm.expect(body.shortages).to.be.an('array').that.is.not.empty;",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"customer\": {\n        \"name\": \"John Doe\",\n        \"email\": \"john@example.com\"\n    },\n    \"items\": [\n        {\n            \"product_id\": 16,\n            \"quantity\": 1\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/orders",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "orders"
+                            ]
+                        },
+                        "description": "Product 16 (Potato Chips 52g) is seeded with stock 0, so ordering 1 unit returns HTTP 409 with code `insufficient_stock` and a `shortages` list (product_id, code, name, requested, available). (A quantity such as 100000 would be rejected earlier by validation as 422 because the per-line maximum is 1000, which is why this request uses the out-of-stock product instead.) Nothing is written when the order is rejected."
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Customers",
+            "item": [
+                {
+                    "name": "Order history (john@example.com)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "pm.test('Customer and orders are returned', function () {",
+                                    "    const body = pm.response.json();",
+                                    "    pm.expect(body.customer.email).to.eql('john@example.com');",
+                                    "    pm.expect(body.data).to.be.an('array');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/customers/orders?email=john@example.com",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "customers",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "email",
+                                    "value": "john@example.com",
+                                    "description": "Required. Matched case-insensitively."
+                                },
+                                {
+                                    "key": "per_page",
+                                    "value": "15",
+                                    "description": "Optional, 1-100 (default 15).",
+                                    "disabled": true
+                                }
+                            ]
+                        },
+                        "description": "Order history for a customer, newest first, each order with its line items. The customer (name, email) is returned once at the top level of the response. John Doe has 2 orders on a freshly seeded database (3 after the successful order request above)."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Order history (unknown email)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 404', function () {",
+                                    "    pm.response.to.have.status(404);",
+                                    "});",
+                                    "pm.test('Error code is customer_not_found', function () {",
+                                    "    pm.expect(pm.response.json().code).to.eql('customer_not_found');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/customers/orders?email=nobody@example.com",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "customers",
+                                "orders"
+                            ],
+                            "query": [
+                                {
+                                    "key": "email",
+                                    "value": "nobody@example.com"
+                                }
+                            ]
+                        },
+                        "description": "An email that does not belong to any customer. Expect HTTP 404 with code `customer_not_found`. (A known customer with no orders would return 200 with an empty list instead.)"
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ]
+}

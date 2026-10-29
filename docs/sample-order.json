@@ -1,0 +1,16 @@
+{
+    "customer": {
+        "name": "John Doe",
+        "email": "john@example.com"
+    },
+    "items": [
+        {
+            "product_id": 1,
+            "quantity": 2
+        },
+        {
+            "product_id": 2,
+            "quantity": 3
+        }
+    ]
+}

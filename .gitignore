@@ -1,0 +1,30 @@
+# Dependencies
+/vendor
+composer.phar
+
+# Environment files (keep the example)
+.env
+.env.*
+!.env.example
+
+# Test and tooling caches
+.phpunit.result.cache
+/.phpunit.cache
+
+# Laravel runtime artefacts
+/storage/*.key
+/public/hot
+/public/storage
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE / editor directories
+/.idea
+/.vscode
+/.fleet
+/.nova
+/.zed
+.phpactor.json
